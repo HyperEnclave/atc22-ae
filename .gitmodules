@@ -1,0 +1,3 @@
+[submodule "server/sqlite"]
+	path = server/sqlite
+	url = https://github.com/HyperEnclave/YCSB-C-SGX.git

@@ -1,0 +1,15 @@
+====================Modified version of nbench for Intel SGX====================
+TEST                : Iterations/sec.  : Old Index   : New Index
+                    :                  : Pentium 90* : AMD K6/233*
+--------------------:------------------:-------------:------------
+NUMERIC SORT        :          1907.7  :      48.92  :      16.07
+STRING SORT         :          830.35  :     371.02  :      57.43
+BITFIELD            :      6.6912e+08  :     114.78  :      23.97
+FP EMULATION        :          619.17  :     297.10  :      68.56
+FOURIER             :           50516  :      57.45  :      32.27
+ASSIGNMENT          :          74.989  :     285.35  :      74.01
+IDEA                :           16630  :     254.35  :      75.52
+HUFFMAN             :          6809.6  :     188.83  :      60.30
+NEURAL NET          :          112.32  :     180.44  :      75.90
+LU DECOMPOSITION    :            3397  :     175.98  :     127.08
+=================================TEST COMPLETED=================================

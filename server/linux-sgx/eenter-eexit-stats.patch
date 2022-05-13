@@ -1,0 +1,191 @@
+diff --git a/common/inc/sgx_urts.h b/common/inc/sgx_urts.h
+index 1a5ad4f9..c1f63935 100644
+--- a/common/inc/sgx_urts.h
++++ b/common/inc/sgx_urts.h
+@@ -133,6 +133,8 @@ sgx_status_t SGXAPI sgx_get_target_info(
+ 	const sgx_enclave_id_t enclave_id,
+ 	sgx_target_info_t* target_info);
+ 
++sgx_status_t SGXAPI sgx_get_eexit_stats(long long* count, long long* cycles);
++
+ #ifdef __cplusplus
+ }
+ #endif
+diff --git a/psw/urts/linux/enter_enclave.S b/psw/urts/linux/enter_enclave.S
+index 7f3dac56..6a742d3d 100644
+--- a/psw/urts/linux/enter_enclave.S
++++ b/psw/urts/linux/enter_enclave.S
+@@ -38,6 +38,12 @@
+ .data
+ g_xsave_size: .long 0
+ g_clean_ymm:  .long 0
++
++.global g_eexit_count
++g_eexit_count:  .quad 0
++.global g_eexit_cycles
++g_eexit_cycles: .quad 0
++
+ .text
+ DECLARE_GLOBAL_FUNC set_xsave_info
+ #if defined(LINUX32)
+@@ -77,6 +83,10 @@ EENTER_PROLOG
+     je   1f
+     vzeroupper
+ 1:
++    rdtscp
++    mov %rax, %r8
++    mov %rdx, %r9
++
+     mov frame_arg0, %xbx                        /* tcs addr */
+     lea_pic .Lasync_exit_pointer, %xcx          /* aep addr */
+     mov $SE_EENTER, %xax                        /* EENTER leaf */
+@@ -93,6 +103,23 @@ EENTER_PROLOG
+ 
+ /* We have an ocall. Call our bridge function. */
+ 
++    mov     %rax, %r10
++    mov     %rcx, %r11
++    rdtscp
++    shl     $32, %r9
++    add     %r8, %r9
++    shl     $32, %rdx
++    add     %rax, %rdx
++    sub     %r9, %rdx
++
++    lea_symbol  g_eexit_count, %rcx
++    lock add    $1, (%rcx)
++    lea_symbol  g_eexit_cycles, %rcx
++    lock add    %rdx, (%rcx)
++
++    mov     %r10, %rax
++    mov     %r11, %rcx
++
+     cmp     $OCMD_ERET, %xdi
+     je      .Leret
+ 
+diff --git a/psw/urts/linux/urts.cpp b/psw/urts/linux/urts.cpp
+index 2b4520e5..07361f4b 100644
+--- a/psw/urts/linux/urts.cpp
++++ b/psw/urts/linux/urts.cpp
+@@ -299,6 +299,18 @@ extern "C" sgx_status_t sgx_get_metadata(const char* enclave_file, metadata_t *m
+     return SGX_SUCCESS;
+ }
+ 
++extern "C" sgx_status_t sgx_get_eexit_stats(long long* count, long long* cycles)
++{
++    extern long long g_eexit_count;
++    extern long long g_eexit_cycles;
++    if (count && cycles)
++    {
++        *count = g_eexit_count;
++        *cycles = g_eexit_cycles;
++    }
++    return SGX_SUCCESS;
++}
++
+ extern "C" int sgx_get_enclave_mode()
+ {
+ #ifdef SE_SIM
+@@ -308,4 +320,4 @@ extern "C" int sgx_get_enclave_mode()
+ #else
+     return SE_HW_MODE;
+ #endif
+-}
+\ No newline at end of file
++}
+diff --git a/psw/urts/linux/urts.lds b/psw/urts/linux/urts.lds
+index f35d92f2..793dfeee 100644
+--- a/psw/urts/linux/urts.lds
++++ b/psw/urts/linux/urts.lds
+@@ -9,6 +9,7 @@
+         sgx_ecall_ms_buffer_alloc_aligned;
+         sgx_ecall_ms_buffer_free;
+         sgx_ecall_ms_buffer_remain_size;
++        sgx_get_eexit_stats;
+         sgx_thread_wait_untrusted_event_ocall;
+         sgx_thread_wait_untrusted_event_timeout_ocall;
+         sgx_thread_set_untrusted_event_ocall;
+diff --git a/psw/urts/linux/urts_internal.lds b/psw/urts/linux/urts_internal.lds
+index 2059de66..46b32c86 100644
+--- a/psw/urts/linux/urts_internal.lds
++++ b/psw/urts/linux/urts_internal.lds
+@@ -9,6 +9,7 @@
+         sgx_ecall_ms_buffer_alloc_aligned;
+         sgx_ecall_ms_buffer_free;
+         sgx_ecall_ms_buffer_remain_size;
++        sgx_get_eexit_stats;
+         sgx_thread_wait_untrusted_event_ocall;
+         sgx_thread_wait_untrusted_event_timeout_ocall;
+         sgx_thread_set_untrusted_event_ocall;
+diff --git a/sdk/trts/linux/trts_pic.S b/sdk/trts/linux/trts_pic.S
+index 555e7a04..ca8f3916 100644
+--- a/sdk/trts/linux/trts_pic.S
++++ b/sdk/trts/linux/trts_pic.S
+@@ -40,6 +40,12 @@
+ 
+ #include "trts_pic.h"
+ 
++.data
++.global g_eenter_count
++g_eenter_count:     .quad 0
++.global g_eenter_cycles
++g_eenter_cycles:    .quad 0
++
+     /* .text */
+     .section .nipx,"ax",@progbits
+ 
+@@ -116,6 +122,23 @@ DECLARE_GLOBAL_FUNC enclave_entry
+  */
+     .cfi_startproc
+ 
++    mov     %rax, %r10
++    mov     %rcx, %r11
++    rdtscp
++    shl     $32, %r9
++    add     %r8, %r9
++    shl     $32, %rdx
++    add     %rax, %rdx
++    sub     %r9, %rdx
++
++    lea_pic     g_eenter_count, %rcx
++    lock add    $1, (%rcx)
++    lea_pic     g_eenter_cycles, %rcx
++    lock add    %rdx, (%rcx)
++
++    mov     %r10, %rax
++    mov     %r11, %rcx
++
+     /* Clear unused general registers */
+     xor     %xdx, %xdx
+     add     %xdx, %xdx          /* OF = SF = AF = CF = 0; ZF = PF = 1 */
+@@ -219,6 +242,10 @@ DECLARE_GLOBAL_FUNC enclave_entry
+     add     %xdx, %xdx          /* OF = SF = AF = CF = 0; ZF = PF = 1 */
+     cld                         /* DF = 0 */
+ 
++    rdtscp
++    mov     %rax, %r8
++    mov     %rdx, %r9
++
+     /* EEXIT */
+     mov     $SE_EEXIT, %xax     /* EEXIT leaf */
+     ENCLU
+@@ -389,7 +416,6 @@ DECLARE_LOCAL_FUNC do_ocall
+      *                    | ...         |
+      */
+     mov     -1*SE_WORDSIZE(%xax), %xbx  /* return address */
+-    mov     $SE_EEXIT, %xax             /* EEXIT leaf */
+ 
+     /* Clear all GPRs, except xax, xbx, xdi, and xsi*/
+     xor     %xcx, %xcx
+@@ -409,6 +435,11 @@ DECLARE_LOCAL_FUNC do_ocall
+     add     %xdx, %xdx          /* OF = SF = AF = CF = 0; ZF = PF = 1 */
+     cld                         /* DF = 0 */
+ 
++    rdtscp
++    mov     %rax, %r8
++    mov     %rdx, %r9
++    mov     $SE_EEXIT, %xax             /* EEXIT leaf */
++
+     ENCLU
+ 
+ /*

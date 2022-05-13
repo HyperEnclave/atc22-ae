@@ -1,0 +1,68 @@
+diff --git a/common/inc/internal/linux/linux-regs.h b/common/inc/internal/linux/linux-regs.h
+index 2cc32ed8..b27a8622 100644
+--- a/common/inc/internal/linux/linux-regs.h
++++ b/common/inc/internal/linux/linux-regs.h
+@@ -105,7 +105,7 @@
+     jne     1f
+     //JAILHOUSE_HC_ENCL_EXIT //
+     mov $0x80000001, %rax
+-    vmmcall
++    syscall
+     ud2
+     /* if leaf is EEXIT, xbp and xsp need to be passed by xdx and xcx */
+     mov     %xbp, %xdx
+diff --git a/sdk/hyper/uae_service_hyper/quoting_hyper.cpp b/sdk/hyper/uae_service_hyper/quoting_hyper.cpp
+index 665f83ae..df6b4df4 100644
+--- a/sdk/hyper/uae_service_hyper/quoting_hyper.cpp
++++ b/sdk/hyper/uae_service_hyper/quoting_hyper.cpp
+@@ -144,7 +144,7 @@ uint64_t vmcall_quote(const sgx_report_t *, sgx_quote_t*, uint64_t, uint64_t*) {
+     __asm__ __volatile__ ("push %%rbp;"
+                           "mov %%rsp, %%rbp;"
+                           "mov $0x8000000d, %%rax;"
+-                          "vmmcall;"
++                          "syscall;"
+                           "mov %%rax, %0;"
+                           "mov %%rbp, %%rsp;"
+                           "pop %%rbp;"
+diff --git a/sdk/selib/sgx_verify_report.cpp b/sdk/selib/sgx_verify_report.cpp
+index caae01c1..44207834 100644
+--- a/sdk/selib/sgx_verify_report.cpp
++++ b/sdk/selib/sgx_verify_report.cpp
+@@ -56,7 +56,7 @@ static sgx_status_t verify_report(const sgx_report_t *) {
+     __asm__ __volatile__ ("push %%rbp;"
+                           "mov %%rsp, %%rbp;"
+                           "mov $0x8000000a, %%rax;"
+-                          "vmmcall;"
++                          "syscall;"
+                           "mov %%rax, %0;"
+                           "mov %%rbp, %%rsp;"
+                           "pop %%rbp;"
+@@ -136,4 +136,4 @@ sgx_status_t sgx_verify_report(const sgx_report_t *report)
+         return SGX_SUCCESS;
+     }
+ }
+-#endif
+\ No newline at end of file
++#endif
+diff --git a/sdk/trts/linux/trts_pic.S b/sdk/trts/linux/trts_pic.S
+index 555e7a04..b273e2a7 100644
+--- a/sdk/trts/linux/trts_pic.S
++++ b/sdk/trts/linux/trts_pic.S
+@@ -513,7 +513,7 @@ DECLARE_GLOBAL_FUNC vmcall_egetkey
+     mov $0x8000000b, %rax
+     mov %rdi, %rbx
+     mov %rsi, %rcx
+-    vmmcall
++    syscall
+     pop    %rcx
+     pop    %rbx
+     ret
+@@ -546,7 +546,7 @@ DECLARE_GLOBAL_FUNC vmcall_ereport
+     mov    %rdi, %rbx
+     mov    %rsi, %rcx
+     mov $0x8000000c, %rax
+-    vmmcall
++    syscall
+     pop    %rcx
+     pop    %rbx
+     ret

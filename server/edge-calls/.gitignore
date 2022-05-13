@@ -1,0 +1,13 @@
+.config_*
+
+app
+
+enclave.so
+enclave.signed.so
+
+App/App.o
+App/ocalls.o
+App/Enclave_u.*
+
+Enclave/Enclave.o
+Enclave/Enclave_t.*
