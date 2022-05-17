@@ -42,14 +42,19 @@
 
 1. Hardware:
 
-    Make sure your CPU supports SVM and SME features, and the BIOS enabled them. If does, the output of the following commands is not empty:
+    Make sure your CPU supports SVM and SME features. If does, the output of the following commands is not empty:
 
     ```bash
     $ cat /proc/cpuinfo | grep -w svm
     $ cat /proc/cpuinfo | grep -w sme
     ```
+	Check whether BIOS enabled SME by read MSR\_SYS_CFG[SMEE]: 1 means SME are enabled.
 
-    If theses features are disabled, your can enable them manually in the BIOS.
+   ```bash
+   $ sudo apt-get install msr-tools
+   $ sudo modprobe msr
+   $ sudo rdmsr 0xC0010010 -X -f 23:23
+   ```
 
 2. Software:
 
