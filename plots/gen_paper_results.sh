@@ -3,10 +3,10 @@
 res_dir=../paper-results
 
 python3 fig8a_nbench.py \
-    -ab $res_dir/nbench/result-amd-sim.res \
-    -ah $res_dir/nbench/result-amd-hyper.res \
-    -ib $res_dir/nbench/result-intel-sim.res \
-    -is $res_dir/nbench/result-intel-sgx.res
+    -ab $res_dir/nbench/result-amd-sim.txt \
+    -ah $res_dir/nbench/result-amd-hyper.txt \
+    -ib $res_dir/nbench/result-intel-sim.txt \
+    -is $res_dir/nbench/result-intel-sgx.txt
 
 python3 fig8b_sqlite.py \
     -ab $res_dir/sqlite/result-amd-sim.throughput.csv \

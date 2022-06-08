@@ -4,10 +4,11 @@
 
 ### 1.1 Artifact directory layout
 
+* `README.md`: describes the artifact and provides a road map for evaluation.
 * `host/`: contains RustMonitor binary, the Linux kernel module binary, and the scripts to install and enable HyperEnclave.
-* `server/`: contains the source code (or patches) and scripts of all experiments to run on the HyperEnclave server. We also provide a docker container with all dependencies installed.
-* `client/`: contains the benchmark scripts for network-based experiments (lighttpd and redis) to run on the client side. We also provide a docker container with all dependencies installed.
-* `plots/`: contains plotting scripts to generate figures from experiment results.
+* `server/`: contains the source code (or patches) and scripts of all experiments to run within the enclaves. We also provide a docker container with all dependencies installed.
+* `client/`: contains the benchmark scripts for network-based experiments (Lighttpd and Redis) to run on the client-side. We also provide a docker container with all dependencies installed.
+* `plots/`: contains plotting scripts to generate figures from the experiment results.
 * `paper-results/`: contains the results shown in the paper.
 
 ### 1.2 Main experiments
@@ -15,26 +16,26 @@
 | Experiments | Figure/Table | Which container | Run time | Description |
 |------------|--------------|-----------------|----------|-------------|
 | edge-calls | Table 1      | server          | 10s      | `EENTER`/`EEXIT` and ECALLs/OCALLs latency. |
-| exception  | Table 2      | server          | 20s      | Exception handling in P-Enclave. |
-| nbench     | Figure 8a    | server          | 10m      | Performance scores of [NBench](https://www.math.utah.edu/~mayer/linux/bmark.html) inside enclave. |
-| sqlite     | Figure 8b    | server          | 15m      | Throughput of in-memory [SQLite](https://www.sqlite.org) databse with different number of records, under [YCSB](https://github.com/brianfrankcooper/YCSB/wiki) A workload.
-| lighttpd   | Figure 8c    | server/client   | 10m      | Throughput of [Lighttpd](https://www.lighttpd.net) web server inside [Occlum](https://github.com/occlum/occlum) LibOS with different request sizes. The client uses [ab](https://httpd.apache.org/docs/2.4/programs/ab.html).
-| redis      | Figure 8d    | server/client   | 20m      | Latency-throughput curve of [Redis](https://redis.io) in-memory database server inside Occlum LibOS with increasing request frequncies. The client use YCSB A workload.
+| exception  | Table 2      | server          | 20s      | Exception handling inside the enclaves. |
+| NBench     | Figure 8a    | server          | 10m      | Performance scores of [NBench](https://www.math.utah.edu/~mayer/linux/bmark.html) inside enclaves. |
+| SQLite     | Figure 8b    | server          | 15m      | Throughput of in-memory [SQLite](https://www.sqlite.org) database with different number of records, under [YCSB](https://github.com/brianfrankcooper/YCSB/wiki) A workload.
+| Lighttpd   | Figure 8c    | server/client   | 10m      | Throughput of [Lighttpd](https://www.lighttpd.net) web server inside [Occlum](https://github.com/occlum/occlum) LibOS with different request sizes. The client uses [ab](https://httpd.apache.org/docs/2.4/programs/ab.html).
+| Redis      | Figure 8d    | server/client   | 20m      | Latency-throughput curve of [Redis](https://redis.io) in-memory database server inside Occlum LibOS with increasing request frequencies. The client uses YCSB A workload.
 
 ## 2. System Requirements
 
 * Hardware:
-    1. A 64-bit AMD platform with SVM (Secure Virtual Machine) and SME (Secure Memory Encryption) enabled.
+    1. A 64-bit AMD platform with SVM (Secure Virtual Machine). Optionally, we recommend that the platform should support SME (Secure Memory Encryption) for the protection against physical memory attacks.
     2. RAM >= 16 GB
     3. Free disk space >= 30 GB
 
-    > We disabled TPM and IOMMU features in RustMonitor binary for AE to minimize hardware requirements, these features do not affect the performance results.
+    > We disabled TPM and IOMMU features in RustMonitor binary for artifact evaluation to minimize the hardware requirements. These features do not affect the performance results.
 
 * Software:
-    1. Linux (The kernel version must be `5.3.0-28-generic` to match our given Linux kernel module binary. we recommend [Ubuntu 18.04.4 LTS](https://old-releases.ubuntu.com/releases/18.04.4/ubuntu-18.04.4-desktop-amd64.iso) which uses this version of kernel as the default)
-    2. [Docker](https://docs.docker.com/engine/install/ubuntu/) (any recent version)
-    3. [git](https://git-scm.com/download/linux) (for cloning the AE repository)
-    4. GCC and Linux kernel headers (for [building](https://askubuntu.com/questions/17944/what-is-the-minimum-requirement-to-compile-kernel-modules) the [enable_rdfsbase](https://github.com/occlum/enable_rdfsbase) kernel module)
+    1. Linux with the specified kernel version (i.e., `5.3.0-28-generic`) to match our given kernel module binary. We recommend [Ubuntu 18.04.4 LTS](https://old-releases.ubuntu.com/releases/18.04.4/ubuntu-18.04.4-desktop-amd64.iso) which uses this version of kernel as the default.
+    2. [Docker](https://docs.docker.com/engine/install/ubuntu/) (any recent version).
+    3. [git](https://git-scm.com/download/linux) (for cloning the AE repository).
+    4. GCC and Linux kernel headers (for [building](https://askubuntu.com/questions/17944/what-is-the-minimum-requirement-to-compile-kernel-modules) the [enable_rdfsbase](https://github.com/occlum/enable_rdfsbase) kernel module).
 
 ## 3. Getting Started
 
@@ -42,20 +43,29 @@
 
 1. Hardware:
 
-    Make sure your CPU supports SVM and SME features, and the BIOS enabled them. If does, the output of the following commands is not empty:
+    Make sure your CPU supports SVM and SME features. If does, the output of the following commands is not empty:
 
-    ```bash
+    ```console
     $ cat /proc/cpuinfo | grep -w svm
     $ cat /proc/cpuinfo | grep -w sme
     ```
 
-    If theses features are disabled, your can enable them manually in the BIOS.
+ 	Check whether BIOS enabled SME by reading SYSCFG MSR bit 23 (MemEncryptionModEn), `1` means SME is enabled:
+
+    ```console
+    $ sudo apt-get install msr-tools
+    $ sudo modprobe msr
+    $ sudo rdmsr 0xC0010010 -X -f 23:23
+    1
+    ```
+
+    If SME is not available, you can continue running experiments with our no-SME version binaries (Section 3.1).
 
 2. Software:
 
     Make sure your kernel version is `5.3.0-28-generic`, or you can manually install it via `apt-get`:
 
-    ```bash
+    ```console
     $ sudo apt-get install linux-image-5.3.0-28-generic
     $ uname -r
     5.3.0-28-generic
@@ -65,7 +75,7 @@
 
 ### 3.1 Clone the AE repository (less than 1 minute)
 
-```bash
+```console
 $ git clone https://github.com/HyperEnclave/atc22-ae.git
 ```
 
@@ -77,34 +87,34 @@ $ git clone https://github.com/HyperEnclave/atc22-ae.git
     GRUB_CMDLINE_LINUX_DEFAULT="console=tty0 console=ttyS0,115200n8 memmap=6G\\\$0x100000000 amd_iommu=off mem_encrypt=off"
     ```
 
-    This configures the serial port output, reserves RustMonitor and EPC memory (6 GB), disables IOMMU and memory encryption in Linux (allows RustMonitor to control them).
+    This configures the serial port output, reserves RustMonitor and EPC memory (6 GB), and disables IOMMU and memory encryption in Linux (allows RustMonitor to control them).
 
 2. Generate the new grub config file and reboot your system:
 
-    ```
+    ```console
     $ sudo update-grub2
     $ sudo reboot
     ```
 
-3. Verify the grub change is applied after system reboot:
+3. Verify the grub change was applied after the system reboot:
 
- 	```
+ 	```console
  	$ cat /proc/cmdline
  	BOOT_IMAGE=/boot/vmlinuz-5.3.0-28-generic root=UUID=75d32e81-f1fc-4b6b-8ee7-dbc7595fa081 ro console=tty0 console=ttyS0,115200n8 memmap=6G$0x100000000 amd_iommu=off mem_encrypt=off quiet splash
  	```
 
 ### 3.3 Install and launch HyperEnclave (about 3 minutes)
 
-1. Install [enable_rdfsbase](https://github.com/occlum/enable_rdfsbase) kernel module to enable the `RDFSBASE` family instructions to run [Occlum](https://github.com/occlum/occlum):
+1. Install the [enable_rdfsbase](https://github.com/occlum/enable_rdfsbase) kernel module to enable the `RDFSBASE` family instructions to run [Occlum](https://github.com/occlum/occlum):
 
-    ```bash
+    ```console
     $ git clone https://github.com/occlum/enable_rdfsbase.git
     $ cd enable_rdfsbase && make && make install
     ```
 
     If `dmesg` outputs the following information without errors, the installation is successful:
 
-    ```bash
+    ```console
     $ dmesg
     [381479.980251] enable_rdfsbase: Loaded
     [381479.980265] enable_rdfsbase: RDFSBASE and its friends are now enabled on CPU 0
@@ -119,22 +129,22 @@ $ git clone https://github.com/HyperEnclave/atc22-ae.git
 
 2. Launch RustMonitor to deprivilege Linux to the guest mode:
 
-    ```bash
+    ```console
     $ cd host
     $ ./launch_hyperenclave.sh binaries/rust_monitor_sme.elf binaries/hyper_enclave_5.3.0-28-generic.ko
     dev.hyper_enclave.enabled = 1
     ```
 
-    Make sure the suffix of the kernel module matches your kernel version, and SME is available and enabled by your BIOS. If your platform does not support SME, your can use the no-SME version of RustMonitor binary `rust_monitor_no_sme.elf`.
+    Make sure the suffix of the kernel module matches your kernel version, and SME is available and enabled by your BIOS. If your platform does not support SME, you can use the no-SME version of RustMonitor binary `rust_monitor_no_sme.elf`.
 
     If the above command returns and `dmesg` outputs the following information without errors, RustMonitor launched successfully:
 
-    ```bash
+    ```console
     $ dmesg
     [534307.259883] memmap range: [0x100000000-0x27fffffff], 0x180000000
     [534307.266689] hypervisor size: 0x0
     [534307.270477] SME mask: [0x800000000000]
-    [534307.283461] jailhouse_cmd_enable
+    [534307.283461] hyperenclave_cmd_enable
     [534307.288956] SME mask: [0x800000000000]
     [534307.293249] hypervisor size: 0x80000000
     [534307.606589] config_size: 1290
@@ -149,7 +159,7 @@ $ git clone https://github.com/HyperEnclave/atc22-ae.git
 
 3. You can use the tool `test_hypercall` to make sure you are now in the guest mode:
 
-    ```bash
+    ```console
     $ cd host
     $ ./test_hypercall
     Execute VMMCALL OK.
@@ -157,7 +167,7 @@ $ git clone https://github.com/HyperEnclave/atc22-ae.git
     ```
 4. (optional) You can further stop RustMonitor and promote Linux to the host mode:
 
-    ```bash
+    ```console
     $ cd host
     $ ./stop_hyperenclave.sh
     dev.hyper_enclave.enabled = 0
@@ -167,11 +177,11 @@ $ git clone https://github.com/HyperEnclave/atc22-ae.git
 
 ### 3.4 Setup containers (about 5 minutes)
 
-We provided two containers to reduce the environment configuration efforts for experiments. The `server` container pre-installed our enclave SDK, adapted Occlum LibOS, all experiments and their dependencies. The `client` container pre-installed client side benchmark scripts for lighttpd and redis.
+We provided two containers to reduce the environment configuration efforts for experiments. The `server` container pre-installed our enclave SDK, adapted Occlum LibOS, all experiments, and their dependencies. The `client` container pre-installed client-side benchmark scripts for Lighttpd and Redis.
 
 1. Launch the `server` container:
 
-    ```
+    ```console
     $ cd server
     $ make start
     $ make enter
@@ -180,7 +190,7 @@ We provided two containers to reduce the environment configuration efforts for e
 
 2. Launch the `client` container:
 
-    ```
+    ```console
     $ cd client
     $ make start
     $ make enter
@@ -189,9 +199,9 @@ We provided two containers to reduce the environment configuration efforts for e
 
 ### 3.5 Run Hello-world Example (less than 1 minute)
 
-SampleEnclave is a "Hello world"-sized example for the kick-the-tires. Your can quickly compile and run it in the `server` container:
+SampleEnclave is a "Hello world"-sized example for the kick-the-tires. You can quickly compile and run it in the `server` container:
 
-```bash
+```console
 $ cd SampleEnclave
 $ SGX_MODE=SIM make # build for simulation mode to run without security guarantees (baseline)
 $ ./app
@@ -209,17 +219,17 @@ The message "Info: SampleEnclave successfully returned" indicates it ran success
 
 ## 4. Run Experiments
 
-Our enclave SDK was base on [Intel SGX SDK](https://github.com/intel/linux-sgx). SGX applications can be built in **Simulation mode**, which can run on the non-SGX platform but with no security guarantees. In our artifact, we add a **Hyper mode** in the SDK to run SGX applications securly in HyperEnclave, and **use the simulation mode as the baseline**. An application can easily switch between the two modes by recompiling with the environment variable `SGX_MODE`: `SGX_MODE=SIM` for simulation mode, and `SGX_MODE=HYPER` for hyper mode.
+Our enclave SDK was based on [Intel SGX SDK](https://github.com/intel/linux-sgx). SGX applications can be built in **Simulation mode**, which can run on the non-SGX platform but with no security guarantees. In our artifact, we add a **Hyper mode** in the SDK to run SGX applications securely in HyperEnclave and **use the simulation mode as the baseline**. An application can easily switch between the two modes by recompiling with the environment variable `SGX_MODE`: `SGX_MODE=SIM` for simulation mode, and `SGX_MODE=HYPER` for hyper mode.
 
-At least, you need to run all experiments twice, one in simulation mode, and one in hyper mode, to gernerate the **baseline** results and the **GU-Enclave** variant results. Furthermore, we recommend running the `edge-calls`, `lighttpd`, and `redis` experiments using the **HU-enclave** variant, the performance will be significantly improved. The `exception` experiment is only runnable for GU-Enclave and **P-Enclave**, We also recommend running it to demonstrate the advantages of P-Enclaves.
+At least, you need to run all experiments twice, one in simulation mode, and one in hyper mode, to generate the **baseline** results and the **GU-Enclave** variant results. Furthermore, we recommend running the edge-calls, Lighttpd, and Redis experiments using the **HU-enclave** variant, the performance will be significantly improved. The exception experiment is only runnable for GU-Enclave and **P-Enclave**, We also recommend running it to demonstrate the advantages of P-Enclaves.
 
-<!-- Note that the baseline results should be evaluated without HyperEnclave enabled to avoid the virtualization overhead. (your can stop HyperEnclave by the script `host/stop_hyperenclave.sh`) -->
+<!-- Note that the baseline results should be evaluated without HyperEnclave enabled to avoid the virtualization overhead. (you can stop HyperEnclave by the script `host/stop_hyperenclave.sh`) -->
 
 ### 4.1 edge-calls
 
 In the `server` container:
 
-```bash
+```console
 $ cd edge-calls
 $ SGX_MODE=<MODE> ./build.sh    # <MODE>=SIM and HYPER respectively
 $ ./app <tag>                   # <tag>=sim and hyper respectively
@@ -252,9 +262,9 @@ ocall: 4920
 
 Where `<tag>` indicates the result tag (e.g., use `sim` for baseline results, use `hyper` for HyperEnclave results, `p` for P-Enclaves, and `h` for HU-Enclaves). The results will be output to the console and saved in the directory with format `result-<tag>-<timestamp>`.
 
-To benchmark the latency of `EENTER` and `EEXIT` instructions, we added some statistics instructions to the SDK during world switches (see `eenter_eexit_stats.patch`), which may introduce a little overheads. You need to switch to the SDK that installed in `/opt/intel_sgxsdk_perf` to build the experiment code, or just run the script:
+To benchmark the latency of `EENTER` and `EEXIT` instructions, we added some statistics instructions to the SDK during world switches (see `eenter_eexit_stats.patch`), which may introduce small overheads. You need to switch to the SDK installed in `/opt/intel_sgxsdk_perf` to build the experiment code, or just run the script:
 
-```bash
+```console
 $ ./bench_hyper_eenter_eexit.sh <tag>
 ......
   eenter_count = 2020007
@@ -265,11 +275,11 @@ EENTER latency = 1695.459
 EEXIT latency = 1334.593
 ```
 
-### 4.2 nbench
+### 4.2 NBench
 
 In the `server` container:
 
-```bash
+```console
 $ cd nbench
 $ SGX_MODE=<MODE> ./build.sh
 $ ./benchmark.sh <tag>
@@ -292,11 +302,11 @@ LU DECOMPOSITION    :            1628  :      84.34  :      60.90
 
 The results will be output to the console and saved to the file `result-<tag>-<datetime>.txt`.
 
-### 4.3 sqlite
+### 4.3 SQLite
 
 In the `server` container:
 
-```bash
+```console
 $ cd sqlite
 $ SGX_MODE=<MODE> ./build.sh
 $ ./benchmark.sh <tag>
@@ -309,22 +319,22 @@ $ ./benchmark.sh <tag>
 
 It will run several rounds and output throughput for all rounds and record counts in the CSV format. The CSV will also be saved to the file `result-<tag>-<datetime>/throughput.csv`. More detailed results can also be found in this directory.
 
-You can further change the the benchmark arguments, run `./benchmark.sh --help` for more details.
+You can further change the benchmark arguments, run `./benchmark.sh --help` for more details.
 
-### 4.4 lighttpd
+### 4.4 Lighttpd
 
 In the `server` container:
 
-```bash
+```console
 $ cd lighttpd
 $ SGX_MODE=<MODE> ./build.sh
 $ ./run.sh
 2022-05-11 16:40:31: (log.c.196) server started
 ```
 
-Now the console in `server` container will be blocked to wait the requests from client, and you may enter the `client` container to run the benchmark:
+Now the console in the `server` container will be blocked to wait for the requests from the client, and you may enter the `client` container to run the benchmark:
 
-```bash
+```console
 $ cd lighttpd
 $ ./benchmark.sh <tag>
 Completed 1000 requests
@@ -346,11 +356,11 @@ It will run several rounds and output the throughput CSV as well as the latency 
 
 Run `./benchmark.sh --help` for more arguments usage.
 
-### 4.5 redis
+### 4.5 Redis
 
 In the `server` container:
 
-```
+```console
 $ cd redis
 $ SGX_MODE=<MODE> ./build.sh
 $ ./run.sh
@@ -382,9 +392,9 @@ $ ./run.sh
 2:M 11 May 2022 16:50:45.548 * Ready to accept connections
 ```
 
-To benchmark in the `client` container, your need to specify the YCSB installation path:
+To benchmark in the `client` container, you need to specify the YCSB installation path:
 
-```bash
+```console
 $ cd redis
 $ YCSB_ROOT=../tools/ycsb-redis-binding-0.17.0 ./benchmark.sh <tag>
 Target throughput: 5000
@@ -402,18 +412,18 @@ It will run several rounds and output the throughput CSV as well as the latency 
 
 Run `./benchmark.sh --help` for more arguments usage.
 
-Finally, you need to run `redis-cli shutdown` in the `client` container to stop the redis server.
+Finally, you need to run `redis-cli shutdown` in the `client` container to stop the Redis server.
 
 ### 4.6 Exception handling benchmark
 
-This experiment compares the exception handling performance between GU-Enclave and P-Enclave. You can see there are two sub-directory `exception_gu_enclave` and `exception_p_enclave`, make sure your are using the correct directory according the current enclave operation mode. Please see Section 5 for how to switch enclave operation modes.
+This experiment compares the exception handling performance between GU-Enclave and P-Enclave. You can see there are two sub-directory `exception_gu_enclave` and `exception_p_enclave`, make sure you are using the correct directory according to the current enclave operation mode. Please see Section 5 for how to switch enclave operation modes.
 
 In the `server` container:
 
-```
+```console
 $ cd exception/exception_p_enclave      # cd exception/exception_gu_enclave for GU-Enclave
 $ make SGX_MODE=HYPER
-$ ./app 100000000
+$ ./app 100000000                       # Change to smaller (e.g., 2000000) for GU-Enclave
 N = 100000000
 Starting...
 Register exception handler OK!
@@ -444,14 +454,14 @@ The result shows the average handling time for `#PF` and `#UD` exceptions. P-Enc
 
 1. Install `python3` and dependencies:
 
-    ```bash
+    ```console
     $ cd plots
     $ pip3 install -r requirements.txt
     ```
 
 2. Plot figures from the results in the paper:
 
-    ```bash
+    ```console
     $ ./gen_paper_results.sh
     ```
 
@@ -459,7 +469,7 @@ The result shows the average handling time for `#PF` and `#UD` exceptions. P-Enc
 
     1. All results are generated in the container, you should first take them out of the container. You can run the following command in the host to copy files from the container:
 
-        ```bash
+        ```console
         $ docker cp container_id:/path/to/your/result .
         ```
 
@@ -467,7 +477,7 @@ The result shows the average handling time for `#PF` and `#UD` exceptions. P-Enc
 
 ## 5. Flexible Enclave Operation Mode
 
-Currently we support flexible enclave modes by providing separate RustMonitor binaries, which are located at the directory `host/binaries/`:
+Currently, we support flexible enclave modes by providing separate RustMonitor binaries, which are located at the directory `host/binaries/`:
 
 | Binaries | Which operation mode | SME |
 |----------|----------------------|-----|
@@ -480,25 +490,25 @@ Currently we support flexible enclave modes by providing separate RustMonitor bi
 
 You can switch to a specific mode by re-launching the corresponding RustMonitor:
 
-```bash
+```console
 $ ./launch_hyperenclave.sh binaries/rust_monitor_xxx.elf binaries/hyper_enclave_5.3.0-28-generic.ko
 ```
 
 ### 5.1 P-Enclave
 
-All experiments in Section 4 can run in P-Enclaves without rebuilding. You will see that P-Enclaves perform similarly to GU-Enclaves (except the `exception` case).
+All experiments in Section 4 can run in P-Enclaves without rebuilding. You will see that P-Enclaves perform similarly to GU-Enclaves (except in the exception handling benchmark).
 
 ### 5.2 HU-Enclave
 
-Since we replaced hypercall instructions with system call instructions in HU-Enclaves, it uses a different enclave SDK  from GU-Enclaves and P-Enclaves, Furthermore, the SDK libraries used for Occlum is different, too. So we use another `server` container which pre-installed all dependencies for HU-Enclaves. (No need for another `client` container)
+Since we replaced hypercall instructions with system call instructions in HU-Enclaves, it uses a different enclave SDK from GU-Enclaves and P-Enclaves. Furthermore, the SDK libraries used for Occlum are different, too. So we use another `server` container that pre-installed all dependencies for HU-Enclaves. (No need for another `client` container)
 
-Your can easily use the `server` container for HU-Enclaves by setting an argument in the script:
+You can easily use the `server` container for HU-Enclaves by setting an argument in the script:
 
-```
+```console
 $ cd server
 $ make start HU=1
 $ make enter HU=1
 root@your-machine-name:/home/admin/dev#
 ```
 
-Then run all experiments in Section 4 to get the performance results for HU-Enclaves. You will see that HU-Enclaves perform better than GU-Enclaves and P-Enclaves in a same experiment.
+Then run all experiments in Section 4 to get the performance results for HU-Enclaves. You will see that HU-Enclaves perform better than GU-Enclaves and P-Enclaves in the same experiment.
