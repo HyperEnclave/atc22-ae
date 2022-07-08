@@ -1,5 +1,22 @@
 # HyperEnclave ATC '22 Artifact Evaluation
 
+Yuekai Jia, Shuang Liu, Wenhao Wang, Yu Chen, Zhengde Zhai, Shoumeng Yan, and Zhengyu He. [HyperEnclave: An Open and Cross-platform Trusted Execution Environment](https://www.usenix.org/conference/atc22/presentation/jia-yuekai). In *2022 USENIX Annual Technical Conference (USENIX ATC 22)*, pages 437-454, Carlsbad, CA, July 2022. USENIX Association.
+
+```
+@inproceedings {jia2022hyperenclave,
+  author = {Yuekai Jia and Shuang Liu and Wenhao Wang and Yu Chen and Zhengde Zhai and Shoumeng Yan and Zhengyu He},
+  title = {{HyperEnclave}: An Open and Cross-platform Trusted Execution Environment},
+  booktitle = {2022 USENIX Annual Technical Conference (USENIX ATC 22)},
+  year = {2022},
+  isbn = {978-1-939133-29-48},
+  address = {Carlsbad, CA},
+  pages = {437--454},
+  url = {https://www.usenix.org/conference/atc22/presentation/jia-yuekai},
+  publisher = {USENIX Association},
+  month = jul,
+}
+```
+
 ## 1. Overview
 
 ### 1.1 Artifact directory layout
